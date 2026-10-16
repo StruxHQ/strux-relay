@@ -109,6 +109,8 @@ jobs:
       group: claude-automerge-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     permissions:
+      # actions: write is for the image build dispatched after the merge.
+      actions: write
       contents: write
       pull-requests: write
     steps:
@@ -153,3 +155,25 @@ jobs:
           fi
           # --auto: GitHub merges once the required CI checks (build, tests) are green too.
           gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --auto --squash --delete-branch --match-head-commit "$SHA"
+
+      # A merge made with GITHUB_TOKEN is a push that starts no workflow, so the
+      # Relay image never built main after an automerge. workflow_dispatch is the
+      # one trigger that token may still fire, so wait for the merge and ask for it.
+      - name: Build the main image once the PR has merged
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          for _ in $(seq 1 60); do
+            state=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json state --jq .state)
+            if [ "$state" = "MERGED" ]; then
+              gh workflow run relay-image.yml --repo "$GITHUB_REPOSITORY" --ref main
+              exit 0
+            fi
+            if [ "$state" = "CLOSED" ]; then
+              echo "Closed without merging, nothing to build."; exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::Not merged after 15 minutes. Once it is, run: gh workflow run relay-image.yml --ref main"
+          exit 1
