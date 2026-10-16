@@ -14,7 +14,7 @@ namespace StruxRelay.Mcp;
 ///
 /// It contains NO knowledge of any device. There is no table of commands here, no
 /// notion of what a command means, and nothing keyed on a product: a device is
-/// asked what it can do (<c>help describe</c>), asked what it is
+/// asked what it can do (<c>help</c>), asked what it is
 /// (<c>system describe</c>), and then told to run whatever the caller named. A
 /// firmware that grows a command, or a product this relay has never heard of,
 /// becomes reachable through MCP with nothing changed on this side — which is the
@@ -80,7 +80,7 @@ internal sealed class DeviceMcp(
     ///
     /// Two device commands, because the two halves belong to two owners in the
     /// firmware and neither is invented here: <c>system describe</c> is the device's
-    /// own identity and instructions, and <c>help describe</c> is its command registry
+    /// own identity and instructions, and <c>help</c> is its command registry
     /// describing itself — names, descriptions, and every argument with its type,
     /// whether it is required, and what it means.
     ///
@@ -93,7 +93,7 @@ internal sealed class DeviceMcp(
         var connection = await ConnectedAsync(deviceId, cancellationToken);
 
         var device = await AskAsync(connection, "system describe", cancellationToken);
-        var commands = await AskAsync(connection, "help describe", cancellationToken);
+        var commands = await AskAsync(connection, "help", cancellationToken);
 
         return new JsonObject
         {

@@ -117,6 +117,37 @@ internal sealed record DeviceHello(IReadOnlyDictionary<string, string> Values)
     }
 
     /// <summary>
+    /// The same statement, assembled from what a device on the channels wire answers
+    /// to <c>system info</c> and <c>system describe</c>. That wire has no hello frame:
+    /// the relay asks once the handshake settles, and the two replies name a few
+    /// facts differently from the hello. Renaming them here keeps one shape
+    /// downstream, so the device list and the database never learn which wire a
+    /// device speaks.
+    ///
+    /// From <c>system describe</c> only the commit and the one-line description are
+    /// taken. Its instructions are pages of prose and are served on demand by that
+    /// command; storing them would put a manual in every device row.
+    /// </summary>
+    public static DeviceHello FromSystemCommands(DeviceHello info, DeviceHello? describe)
+    {
+        var values = new Dictionary<string, string>(info.Values, StringComparer.Ordinal);
+        values.Remove("ok");
+
+        if (values.Remove("firmware", out var firmware))
+            values["fw"] = firmware;
+
+        if (describe is not null)
+        {
+            if (describe.Values.TryGetValue("commit", out var commit))
+                values["commit"] = commit;
+            if (describe.Values.TryGetValue("description", out var description))
+                values["desc"] = description;
+        }
+
+        return new DeviceHello(values);
+    }
+
+    /// <summary>
     /// How the map is stored. JSON rather than a column per key, because the whole
     /// point is that the key set is the DEVICE's business: a column would mean a
     /// migration every time firmware learns to report one more thing.

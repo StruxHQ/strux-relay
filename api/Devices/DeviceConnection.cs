@@ -572,6 +572,51 @@ internal sealed class DeviceConnection : Cache.IFrontendSource
             return;
         }
 
+        await AdoptHelloAsync(hello, cancellationToken);
+    }
+
+    /// <summary>
+    /// Asks a device on the channels wire who it is, which that wire never says on
+    /// its own: there is no hello frame, so without this its row keeps the device id
+    /// as its name and "unknown" as its firmware for as long as the pipe is up.
+    ///
+    /// Never call it from the read loop (OnReady runs there): the replies come back
+    /// through that loop, so awaiting them from inside it waits forever.
+    ///
+    /// <c>system describe</c> failing is not a failed identify. A firmware that
+    /// predates it still has a name and a version worth showing.
+    /// </summary>
+    public async Task IdentifyAsync(CancellationToken cancellationToken)
+    {
+        var infoReply = await CommandBytesAsync("system info", null, null, cancellationToken);
+        var info = DeviceHello.Parse(infoReply);
+        if (info is null)
+        {
+            logger.LogWarning(
+                "device {DeviceId} answered system info with something that is not a flat JSON object",
+                DeviceId);
+            return;
+        }
+
+        DeviceHello? describe = null;
+        try
+        {
+            var describeReply = await CommandBytesAsync(
+                "system describe", null, null, cancellationToken);
+            describe = DeviceHello.Parse(describeReply);
+        }
+        catch (RelayException exception)
+        {
+            logger.LogInformation(
+                "device {DeviceId} did not answer system describe: {Reason}",
+                DeviceId, exception.Message);
+        }
+
+        await AdoptHelloAsync(DeviceHello.FromSystemCommands(info, describe), cancellationToken);
+    }
+
+    private async Task AdoptHelloAsync(DeviceHello hello, CancellationToken cancellationToken)
+    {
         Hello = hello;
         Firmware = hello.Firmware ?? "unknown";
         Name = hello.Name is { Length: > 0 } named ? named : DeviceId;
