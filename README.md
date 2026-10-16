@@ -285,7 +285,7 @@ Three tools, and deliberately only three:
 | `execute` | run any of those commands with arguments, and return the device's reply verbatim |
 
 **There is no tool per device command, and that is the design.** A Strux device already
-describes itself — `help describe` returns its whole command registry, arguments
+describes itself — `help` returns its whole command registry, arguments
 included, generated from the handlers themselves rather than from a table somebody
 maintains — so discovery is progressive and lives on the device. A relay that published
 a tool per command would hold a copy of every device's surface, regenerated every time

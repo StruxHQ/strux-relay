@@ -171,6 +171,8 @@ internal static class DevicePipe
             {
                 if (cacheOptions.Value.WarmOnConnect) warmer.Start(connection);
 
+                StartIdentify(connection, logger, context.RequestAborted);
+
                 // Ready is a fact the device list SHOWS, and on the channels wire
                 // it turns true after the AddAsync above already announced the row
                 // — so without this every open list holds a device that says it is
@@ -200,6 +202,37 @@ internal static class DevicePipe
                 "device {DeviceId} pipe #{Pipe} closed{Note}",
                 deviceId, connection.Pipe,
                 wasCurrent ? "" : " (already replaced — device is still connected)");
+        }
+    }
+
+    /// <summary>
+    /// Off the read loop, which OnReady runs on and which has to be free to read the
+    /// replies. The pipe's RequestAborted ends it when the pipe goes down.
+    /// </summary>
+    private static void StartIdentify(
+        DeviceConnection connection, ILogger logger, CancellationToken cancellationToken) =>
+        _ = Task.Run(() => IdentifyAsync(connection, logger, cancellationToken));
+
+    /// <summary>
+    /// A failed identify costs the row its display name and nothing else, so it is
+    /// logged rather than allowed to take anything down with it.
+    /// </summary>
+    private static async Task IdentifyAsync(
+        DeviceConnection connection, ILogger logger, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await connection.IdentifyAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The pipe went down first; there is nobody left to name.
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                exception, "device {DeviceId} could not be asked who it is",
+                connection.DeviceId);
         }
     }
 
