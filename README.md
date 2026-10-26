@@ -497,3 +497,7 @@ reviewers (`.github/workflows/claude-review.yml`, rules in `.github/reviewers/`)
 every non-draft PR and merge it when none reports a blocking finding; label a PR
 `no-automerge` to keep it open. A PR touching `.github/workflows/` or
 `.github/reviewers/` is always merged by hand.
+
+## License
+
+Licensed under the [MIT License](LICENSE).
